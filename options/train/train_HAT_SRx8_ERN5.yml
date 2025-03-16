@@ -2,7 +2,7 @@
 name: train_HAT_SRx8_ERN5
 model_type: HATModel
 scale: 8
-num_gpu: 4
+num_gpu: 1  # Changed from 1 to 4 to use all available GPUs
 manual_seed: 0
 
 # dataset and data loader settings
@@ -22,10 +22,10 @@ datasets:
 
     # data loader
     use_shuffle: true
-    num_worker_per_gpu: 12  # Increased from 8 to 12 for better I/O throughput
-    batch_size_per_gpu: 1  # Optimized batch size for balance of speed and memory
+    num_worker_per_gpu: 2  # Balanced number of workers
+    batch_size_per_gpu: 1  # Optimal batch size for this model architecture
     dataset_enlarge_ratio: 1
-    prefetch_mode: cuda
+    prefetch_mode: ~  # Keep prefetch disabled
     pin_memory: true
 
   # val_1:

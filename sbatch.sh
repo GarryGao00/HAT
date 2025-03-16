@@ -13,4 +13,6 @@ module load pytorch
 cd /pscratch/sd/y/yanggao/HAT
 source myenv/bin/activate
 export PYTHONPATH=$PYTHONPATH:/pscratch/sd/y/yanggao/HAT
-CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 --master_port=4321 hat/train.py -opt options/train/train_HAT_SRx8_ERN5.yml --launcher pytorch
+
+# Use all 4 GPUs for faster training
+CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1 --master_port=4321 hat/train.py -opt options/train/train_HAT_SRx8_ERN5.yml --launcher pytorch

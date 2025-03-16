@@ -20,28 +20,43 @@ class ERN5Dataset(data.Dataset):
     """ERN5 dataset for HAT model training.
     
     Adapted to work with a single HDF5 file with shape (27010, 721, 1440).
-    Optimized for large h5 files with file handle caching and efficient data loading.
+    Modified to use per-instance file handles for better multi-worker performance.
     """
-    
-    # Class-level file handle cache with thread lock for safety
-    _file_handle = None
-    _file_lock = threading.Lock()
     
     def __init__(self, opt):
         super(ERN5Dataset, self).__init__()
         self.opt = opt
         self.gt_folder = opt['dataroot_gt']
-        self.gt_file = osp.join(self.gt_folder, 'gt_rechunked.h5')
+        self.gt_file = osp.join(self.gt_folder, 'gt.h5')
         self.factor = opt.get('scale', 8)
         self.mean = 278.06824
         self.std = 21.676298
         
         # Check if the file exists
         if not osp.exists(self.gt_file):
+            print(f"HDF5 file not found: {self.gt_file}")
             raise FileNotFoundError(f"HDF5 file not found: {self.gt_file}")
         
-        # Open the file to get metadata and keep it open for faster access
-        self._init_file_handle()
+        # Open the file temporarily to get metadata
+        with h5py.File(self.gt_file, 'r') as f:
+            # Get the dataset from the file
+            if 'fields' in f:
+                self.dataset_key = 'fields'
+            else:
+                # If 'fields' doesn't exist, try to get the first dataset in the file
+                self.dataset_key = list(f.keys())[0]
+            
+            # Get data shape
+            self.data_shape = f[self.dataset_key].shape
+            print(f"GT dataset shape: {self.data_shape}")
+            
+            # Check if the dataset has chunks (for efficient access)
+            dataset = f[self.dataset_key]
+            if not dataset.chunks:
+                print("Warning: H5 dataset is not chunked. This may impact performance.")
+            else:
+                print(f"H5 dataset chunk size: {dataset.chunks}")
+            print(f"!!! H5 read, H5 dataset shape: {dataset.shape}")
         
         # Set patch size
         self.gt_size = opt.get('gt_size', 256)
@@ -76,45 +91,22 @@ class ERN5Dataset(data.Dataset):
         print(f"Each time index can be divided into {self.crops_per_time} crops of size {self.gt_size}×{self.gt_size}")
         print(f"Crop mode: {'Random' if self.random_crop else 'Sequential'}")
         
-    def _init_file_handle(self):
-        """Initialize and cache the file handle at class level for reuse."""
-        with ERN5Dataset._file_lock:
-            if ERN5Dataset._file_handle is None:
-                ERN5Dataset._file_handle = h5py.File(self.gt_file, 'r', swmr=True)
-                
-                # Get the dataset from the file
-                if 'fields' in ERN5Dataset._file_handle:
-                    self.dataset_key = 'fields'
-                else:
-                    # If 'fields' doesn't exist, try to get the first dataset in the file
-                    self.dataset_key = list(ERN5Dataset._file_handle.keys())[0]
-                
-                # Get data shape
-                self.data_shape = ERN5Dataset._file_handle[self.dataset_key].shape
-                print(f"GT dataset shape: {self.data_shape}")
-                
-                # Check if the dataset has chunks (for efficient access)
-                dataset = ERN5Dataset._file_handle[self.dataset_key]
-                if not dataset.chunks:
-                    print("Warning: H5 dataset is not chunked. This may impact performance.")
-                else:
-                    print(f"H5 dataset chunk size: {dataset.chunks}")
-                print(f"!!! H5 read, H5 dataset shape: {dataset.shape}")
+        # Instance-specific file handle - will be initialized in __getitem__
+        self._file_handle = None
 
     def normalize(self, x):
         """Normalize data."""
         return (x - self.mean) / self.std
     
-    def get_file_handle(self):
-        """Get the cached file handle or create a new one if needed."""
-        with ERN5Dataset._file_lock:
-            if ERN5Dataset._file_handle is None or not ERN5Dataset._file_handle.id.valid:
-                self._init_file_handle()
-            return ERN5Dataset._file_handle
+    def _get_file_handle(self):
+        """Get a file handle for this instance."""
+        if self._file_handle is None or not self._file_handle.id.valid:
+            self._file_handle = h5py.File(self.gt_file, 'r')
+        return self._file_handle
     
     def __getitem__(self, index):
-        # Get the cached file handle
-        f = self.get_file_handle()
+        # Get file handle for this worker
+        f = self._get_file_handle()
         dataset = f[self.dataset_key]
         
         if self.random_crop:
@@ -193,13 +185,6 @@ class ERN5Dataset(data.Dataset):
             
     def __del__(self):
         """Clean up resources when the dataset is deleted."""
-        # File handle is managed at class level, so we don't close it here
-        pass
-        
-    @classmethod
-    def cleanup(cls):
-        """Class method to explicitly close the file handle."""
-        with cls._file_lock:
-            if cls._file_handle is not None:
-                cls._file_handle.close()
-                cls._file_handle = None 
+        if self._file_handle is not None:
+            self._file_handle.close()
+            self._file_handle = None 
