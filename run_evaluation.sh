@@ -13,15 +13,18 @@ module load pytorch
 cd /pscratch/sd/y/yanggao/HAT
 source myenv/bin/activate
 
-# Set the correct PYTHONPATH to include the current directory
-export PYTHONPATH=$PYTHONPATH:/pscratch/sd/y/yanggao/HAT
+# Set the PYTHONPATH to include the current directory
+export PYTHONPATH=$(pwd):$PYTHONPATH
 
-# Print the PYTHONPATH for debugging
-echo "PYTHONPATH: $PYTHONPATH"
-
-# Print loaded packages for debugging
+# Check if hat.data module can be imported
 echo "Checking if hat.data module can be imported:"
 python -c "import hat.data; print(hat.data); print('hat.data module imported successfully')"
+echo "hat.data module imported successfully"
+
+# Check if custom metrics are registered
+echo "Checking if custom metrics are registered:"
+python -c "import hat.metrics; print('Custom metrics:', hat.metrics.__all__)"
+echo "Custom metrics checked successfully"
 
 # Step A: Run the HAT model evaluation
 echo "Running HAT model evaluation..."

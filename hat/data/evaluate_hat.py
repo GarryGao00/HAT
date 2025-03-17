@@ -12,6 +12,7 @@ import torch
 import numpy as np
 import argparse
 import hat.data
+import hat.metrics  # Import our custom metrics
 from os import path as osp
 
 # Add the BasicSR path to the Python path

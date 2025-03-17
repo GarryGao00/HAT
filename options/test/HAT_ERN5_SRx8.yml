@@ -41,7 +41,7 @@ network_g:
 
 # path
 path:
-  pretrain_network_g: /pscratch/sd/y/yanggao/HAT/experiments/train_HAT_SRx8_ERN5/models/net_g_180000.pth
+  pretrain_network_g: /pscratch/sd/y/yanggao/HAT/experiments/train_HAT_SRx8_ERN5/models/net_g_10000.pth
   strict_load_g: true
   param_key_g: 'params_ema'
 
@@ -58,3 +58,7 @@ val:
       type: calculate_ssim
       crop_border: 8
       test_y_channel: false 
+    rfne:
+      type: calculate_rfne
+      crop_border: 8
+      test_y_channel: false
