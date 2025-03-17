@@ -5,7 +5,7 @@
 #SBATCH -J HAT_SRx8_ERN5
 #SBATCH --mail-user=gaoyang29@berkeley.edu
 #SBATCH --mail-type=all
-#SBATCH -t 23:59:59
+#SBATCH -t 47:59:59
 #SBATCH -A m4876
 
 module load pytorch
